@@ -488,6 +488,23 @@ def find_sstate_manifest(taskdata, taskdata2, taskname, d, multilibcache):
         if os.path.exists(manifest):
             return manifest, d2
         searched_manifests.append(manifest)
+
+    # Fallback for target recipes when called from nativesdk context.
+    # nativesdk sets TUNE_FEATURES="" which causes PACKAGE_EXTRA_ARCHS to miss
+    # tune-specific architectures (e.g., cortexa53-crypto). Only use glob fallback
+    # for plain target recipes (no special class) to avoid multilib confusion.
+    if not taskdata.endswith("-native") and not taskdata.startswith("nativesdk-") \
+       and "-cross" not in taskdata and d.getVar("CLASSOVERRIDE") == "class-nativesdk":
+        import glob
+        pattern = d2.expand("${SSTATE_MANIFESTS}/manifest-*-%s.%s" % (taskdata, taskname))
+        fallback_manifests = glob.glob(pattern)
+        # Filter to only target manifests (exclude native/nativesdk/cross variants)
+        target_manifests = [m for m in fallback_manifests
+                           if "-native." not in m and "nativesdk-" not in m and "-cross" not in m]
+        if len(target_manifests) == 1:
+            bb.debug(1, "Using fallback manifest lookup for %s: %s" % (taskdata, target_manifests[0]))
+            return target_manifests[0], d2
+
     bb.fatal("The sstate manifest for task '%s:%s' (multilib variant '%s') could not be found.\nThe pkgarchs considered were: %s.\nBut none of these manifests exists:\n    %s"
             % (taskdata, taskname, variant, d2.expand(", ".join(pkgarchs)),"\n    ".join(searched_manifests)))
     return None, d2
