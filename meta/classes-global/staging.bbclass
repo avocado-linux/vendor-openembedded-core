@@ -414,6 +414,7 @@ python extend_recipe_sysroot() {
     manifests = {}
     # All files that we're going to be installing, to find conflicts.
     fileset = {}
+    fileset_src = {}
 
     invalidate_tasks = set()
     for f in os.listdir(depdir):
@@ -576,13 +577,22 @@ python extend_recipe_sysroot() {
 
                     # Check if files have already been installed by another
                     # recipe and abort if they have, explaining what recipes are
-                    # conflicting.
+                    # conflicting. Allow identical symlinks (e.g. clang-cross
+                    # and clang15-cross both providing the same tool symlinks).
                     hashname = targetdir + dest
                     if not hashname.endswith("/"):
                         if hashname in fileset:
-                            bb.fatal("The file %s is installed by both %s and %s, aborting" % (dest, c, fileset[hashname]))
+                            is_same = False
+                            othersrc = fileset_src.get(hashname)
+                            if othersrc and os.path.islink(l) and os.path.islink(othersrc):
+                                is_same = os.readlink(l) == os.readlink(othersrc)
+                            if is_same:
+                                bb.warn("The file %s is installed by both %s and %s, but is an identical symlink, allowing" % (dest, c, fileset[hashname]))
+                            else:
+                                bb.fatal("The file %s is installed by both %s and %s, aborting" % (dest, c, fileset[hashname]))
                         else:
                             fileset[hashname] = c
+                            fileset_src[hashname] = l
 
             # Having multiple identical manifests in each sysroot eats diskspace so
             # create a shared pool of them and hardlink if we can.
