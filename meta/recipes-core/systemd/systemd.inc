@@ -26,3 +26,6 @@ CVE_STATUS[CVE-2026-40223] = "fixed-version: fixed in 259.2"
 CVE_STATUS[CVE-2026-40224] = "fixed-version: fixed in 259.3"
 CVE_STATUS[CVE-2026-40225] = "fixed-version: fixed in 259.5"
 CVE_STATUS[CVE-2026-40226] = "fixed-version: fixed in 259.4"
+
+MAJMIN_VERSION = "${@d.getVar('PV').split('.')[0]}"
+UPSTREAM_STABLE_RELEASE_REGEX = "${MAJMIN_VERSION}\.\d"
