@@ -33,6 +33,8 @@ PACKAGECONFIG ??= " \
     ${@bb.utils.contains('TUNE_FEATURES', 'mx32', '', 'rsvg', d)} \
 "
 
+PACKAGECONFIG:remove = "${@'vulkan' if (bb.utils.filter('DISTRO_FEATURES', 'x11 wayland', d) == '') else ''}"
+
 PACKAGECONFIG[analytics]       = "-Danalyticsoverlay=enabled,-Danalyticsoverlay=disabled,"
 PACKAGECONFIG[aom]             = "-Daom=enabled,-Daom=disabled,aom"
 PACKAGECONFIG[assrender]       = "-Dassrender=enabled,-Dassrender=disabled,libass"
