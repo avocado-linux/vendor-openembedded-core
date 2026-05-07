@@ -20,6 +20,9 @@ SRC_URI = "https://www.kernel.org/pub/linux/utils/kernel/${BPN}/${BP}.tar.xz \
            "
 SRC_URI[sha256sum] = "5a5d5073070cc7e0c7a7a3c6ec2a0e1780850c8b47b3e3892226b93ffcb9cb54"
 
+MAJMIN_VERSION = "${@d.getVar('PV').split('.')[0]}"
+UPSTREAM_STABLE_RELEASE_REGEX = "${MAJMIN_VERSION}\.\d"
+
 EXTRA_OEMESON += "\
     -Ddistconfdir=${nonarch_base_libdir} \
     --bindir=${base_bindir} \
