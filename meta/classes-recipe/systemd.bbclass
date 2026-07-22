@@ -25,24 +25,36 @@ python __anonymous() {
 }
 
 systemd_postinst() {
-if type systemctl >/dev/null 2>/dev/null; then
-	OPTS=""
+if [ -n "$D" ]; then
+	# Image-build/cross-install: apply presets to the target rootfs.
+	# This handles multistrap, debootstrap, and similar tools that
+	# install packages outside of Yocto's normal image creation.
+	if [ "${SYSTEMD_AUTO_ENABLE}" = "enable" ]; then
+		if type systemctl >/dev/null 2>/dev/null; then
+			for service in ${@systemd_filter_services("${SYSTEMD_SERVICE_ESCAPED}", False, d)}; do
+				systemctl --root=$D preset "$service" 2>/dev/null || \
+					systemctl --root=$D enable "$service" 2>/dev/null || true
+			done
 
-	if [ -n "$D" ]; then
-		OPTS="--root=$D"
+			for service in ${@systemd_filter_services("${SYSTEMD_SERVICE_ESCAPED}", True, d)}; do
+				systemctl --global --root=$D preset "$service" 2>/dev/null || \
+					systemctl --global --root=$D enable "$service" 2>/dev/null || true
+			done
+		fi
 	fi
-
+elif type systemctl >/dev/null 2>/dev/null; then
+	# On-target: running on the actual device
 	if [ "${SYSTEMD_AUTO_ENABLE}" = "enable" ]; then
 		for service in ${@systemd_filter_services("${SYSTEMD_SERVICE_ESCAPED}", False, d)}; do
-			systemctl ${OPTS} enable "$service"
+			systemctl enable "$service"
 		done
 
 		for service in ${@systemd_filter_services("${SYSTEMD_SERVICE_ESCAPED}", True, d)}; do
-			systemctl --global ${OPTS} enable "$service"
+			systemctl --global enable "$service"
 		done
 	fi
 
-	if [ -z "$D" ] && systemctl >/dev/null 2>/dev/null; then
+	if systemctl >/dev/null 2>/dev/null; then
 		# Reload only system service manager
 		# --global for daemon-reload is not supported: https://github.com/systemd/systemd/issues/19284
 		systemctl daemon-reload
