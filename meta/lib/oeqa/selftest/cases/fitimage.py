@@ -677,6 +677,8 @@ class KernelFitImageBase(FitImageTestCase):
             'FIT_DESC',
             'FIT_HASH_ALG',
             'FIT_KERNEL_COMP_ALG',
+            'FIT_KERNEL_FILENAME',
+            'FIT_KERNEL_FILENAME_COMPRESSED',
             'FIT_LOADABLES',
             'FIT_LOADABLE_ENTRYPOINT',
             'FIT_LOADABLE_LOADADDRESS',
@@ -909,17 +911,39 @@ class KernelFitImageBase(FitImageTestCase):
         uboot_rd_loadaddress = bb_vars.get('UBOOT_RD_LOADADDRESS')
         uboot_rd_entrypoint = bb_vars.get('UBOOT_RD_ENTRYPOINT')
 
+        kernel_filename = bb_vars.get('FIT_KERNEL_FILENAME')
+        kernel_filename_compressed = bb_vars.get('FIT_KERNEL_FILENAME_COMPRESSED')
+        kernel_comp_alg = bb_vars['FIT_KERNEL_COMP_ALG']
+
+        if kernel_filename:
+            kernel_name = os.path.basename(kernel_filename)
+            if kernel_comp_alg != 'none':
+                kernel_name += '.compressed'
+        elif kernel_filename_compressed:
+            kernel_name = os.path.basename(kernel_filename_compressed)
+
         its_field_check = [
             'description = "%s";' % bb_vars['FIT_DESC'],
             'description = "Linux kernel";',
             'type = "' + str(bb_vars['UBOOT_MKIMAGE_KERNEL_TYPE']) + '";',
-            # 'compression = "' + str(bb_vars['FIT_KERNEL_COMP_ALG']) + '";', defined based on files in TMPDIR, not ideal...
-            'data = /incbin/("linux.bin");',
+        ]
+
+        # Compression test skipped for deprecated linux.bin handling, as that
+        # would be based on files in TMPDIR
+        if kernel_filename or kernel_filename_compressed != 'linux.bin':
+            its_field_check.append('compression = "%s";' % kernel_comp_alg)
+
+        if kernel_name:
+            its_field_check.append('data = /incbin/("%s");' % kernel_name)
+
+        # Field order of its_field_check and the generated ITS must match
+        its_field_check += [
             'arch = "' + str(bb_vars['UBOOT_ARCH']) + '";',
             'os = "%s";' % bb_vars['FIT_OS'],
             'load = <' + str(bb_vars['UBOOT_LOADADDRESS']) + '>;',
             'entry = <' + str(bb_vars['UBOOT_ENTRYPOINT']) + '>;',
         ]
+
         if initramfs_image and initramfs_image_bundle != "1":
             its_field_check.append('type = "ramdisk";')
             if uboot_rd_loadaddress:
@@ -1272,6 +1296,24 @@ PREFERRED_PROVIDER_virtual/dtb = "test-dtbs-as-ext"
         self._gen_atf_tee_dummy_images(bb_vars)
         self._test_fitimage(bb_vars)
 
+    def test_fit_image_kernel_filename(self):
+        """
+        Summary:     Check if FIT image and Image Tree Source (its) are built
+                     and the Image Tree Source has the correct fields.
+        Expected:    1. fitImage and Image Tree Source can be built
+                     2. Filename and compression are as expected in the ITS
+                     3. Filename is as expected in the fitImage
+        """
+        config = """
+KERNEL_IMAGETYPE = "bzImage"
+FIT_KERNEL_FILENAME = "bzImage"
+FIT_KERNEL_COMP_ALG = "none"
+"""
+        config = self._config_add_kernel_classes(config)
+        self.write_config(config)
+        bb_vars = self._fit_get_bb_vars()
+        self._test_fitimage(bb_vars)
+
 
     def test_sign_fit_image_configurations(self):
         """
@@ -1506,11 +1548,12 @@ class FitImagePyTests(KernelFitImageBase):
             'FIT_DESC': "Kernel fitImage for a dummy distro",
             'FIT_GENERATE_KEYS': "0",
             'FIT_HASH_ALG': "sha256",
+            'FIT_KERNEL_COMP_ALG': "gzip",
+            'FIT_KERNEL_FILENAME_COMPRESSED': "linux.bin",
             'FIT_KEY_GENRSA_ARGS': "-F4",
             'FIT_KEY_REQ_ARGS': "-batch -new",
             'FIT_KEY_SIGN_PKCS': "-x509",
             'FIT_LOADABLES': "",
-            'FIT_LINUX_BIN': "linux.bin",
             'FIT_OS': "linux",
             'FIT_PAD_ALG': "pkcs-1.5",
             'FIT_SIGN_ALG': "rsa2048",
@@ -1549,6 +1592,19 @@ class FitImagePyTests(KernelFitImageBase):
                 debug_output = "\n".join([f"{key} = {value}" for key, value in bb_vars_overrides.items()])
                 self.logger.debug("bb_vars overrides:\n%s" % debug_output)
 
+        kernel = bb_vars.get('FIT_KERNEL_FILENAME')
+        kernel_compressed = bb_vars.get('FIT_KERNEL_FILENAME_COMPRESSED')
+        kernel_comp_alg = bb_vars.get('FIT_KERNEL_COMP_ALG')
+
+        if kernel and kernel_comp_alg == 'none':
+            kernel_compressed = kernel
+            kernel = None
+
+        if kernel:
+            kernel_name = os.path.basename(kernel) + '.compressed'
+        elif kernel_compressed:
+            kernel_name = os.path.basename(kernel_compressed)
+
         root_node = oe.fitimage.ItsNodeRootKernel(
             bb_vars["FIT_DESC"], bb_vars["FIT_ADDRESS_CELLS"],
             bb_vars['HOST_PREFIX'], bb_vars['UBOOT_ARCH'], bb_vars['FIT_OS'],
@@ -1561,7 +1617,8 @@ class FitImagePyTests(KernelFitImageBase):
             oe.types.boolean(bb_vars['FIT_SIGN_INDIVIDUAL']), bb_vars['UBOOT_SIGN_IMG_KEYNAME']
         )
 
-        root_node.fitimage_emit_section_kernel("kernel-1", "linux.bin", "none",
+        root_node.fitimage_emit_section_kernel("kernel-1",
+            kernel_name, kernel_comp_alg,
             bb_vars.get('UBOOT_LOADADDRESS'), bb_vars.get('UBOOT_ENTRYPOINT'),
             bb_vars.get('UBOOT_MKIMAGE_KERNEL_TYPE'), bb_vars.get("UBOOT_ENTRYSYMBOL")
         )
@@ -1650,6 +1707,38 @@ class FitImagePyTests(KernelFitImageBase):
         # This should raise an exception because the extra-conf mapping references a non-existent DTB
         with self.assertRaises(BBHandledException):
             self._test_fitimage_py(bb_vars_overrides)
+
+    def test_fitimage_py_conf_kernel_filename_compression(self):
+        """Test FIT_KERNEL_FILENAME and FIT_KERNEL_COMP_ALG functionality"""
+        bb_vars_overrides = {
+            'FIT_KERNEL_FILENAME': "path/to/my/Image",
+            'FIT_KERNEL_COMP_ALG': "gzip",
+        }
+        self._test_fitimage_py(bb_vars_overrides)
+
+    def test_fitimage_py_conf_kernel_filename_compression_none(self):
+        """Test FIT_KERNEL_FILENAME and FIT_KERNEL_COMP_ALG functionality"""
+        bb_vars_overrides = {
+            'FIT_KERNEL_FILENAME': "path/to/my/Image",
+            'FIT_KERNEL_COMP_ALG': "none",
+        }
+        self._test_fitimage_py(bb_vars_overrides)
+
+    def test_fitimage_py_conf_kernel_filename_compressed(self):
+        """Test FIT_KERNEL_FILENAME_COMPRESSED functionality"""
+        bb_vars_overrides = {
+            'FIT_KERNEL_FILENAME_COMPRESSED': "path/to/my/Image",
+            'FIT_KERNEL_COMP_ALG': "gzip",
+        }
+        self._test_fitimage_py(bb_vars_overrides)
+
+    def test_fitimage_py_conf_kernel_filename_compressed_none(self):
+        """Test FIT_KERNEL_FILENAME_COMPRESSED functionality"""
+        bb_vars_overrides = {
+            'FIT_KERNEL_FILENAME_COMPRESSED': "path/to/my/Image",
+            'FIT_KERNEL_COMP_ALG': "none",
+        }
+        self._test_fitimage_py(bb_vars_overrides)
 
     def test_fitimage_py_conf_loadables(self):
         """Test FIT_LOADABLES basic functionality"""

@@ -64,6 +64,7 @@ def apply_dtbvendored(d,dtb):
 
 python do_compile() {
     import shutil
+    import subprocess
     import oe.fitimage
 
     itsfile = "fit-image.its"
@@ -88,12 +89,52 @@ python do_compile() {
     )
 
     # Prepare a kernel image section.
-    shutil.copyfile(os.path.join(kernel_deploydir, "linux.bin"), "linux.bin")
-    with open(os.path.join(kernel_deploydir, "linux_comp")) as linux_comp_f:
-        linux_comp = linux_comp_f.read()
-    root_node.fitimage_emit_section_kernel("kernel-1", "linux.bin", linux_comp,
-        d.getVar('UBOOT_LOADADDRESS'), d.getVar('UBOOT_ENTRYPOINT'),
-        d.getVar('UBOOT_MKIMAGE_KERNEL_TYPE'), d.getVar("UBOOT_ENTRYSYMBOL"))
+    kernel = d.getVar('FIT_KERNEL_FILENAME')
+    kernel_compressed = d.getVar('FIT_KERNEL_FILENAME_COMPRESSED')
+    kernel_comp_alg = d.getVar('FIT_KERNEL_COMP_ALG')
+
+    COMP_ALGS = {
+        'gzip': ['gzip', '-9', '--stdout'],
+        'lzo': ['lzop', '-9', '--stdout'],
+        'lzma': ['xz', '--format=lzma', '-f', '-6', '--stdout'],
+    }
+
+    if kernel and kernel_comp_alg == 'none':
+        kernel_compressed = kernel
+        kernel = None
+    elif not kernel and kernel_compressed == 'linux.bin':
+        # Backwards compatibility
+        bb.warn('FIT_KERNEL_FILENAME_COMPRESSED = "linux.bin" is deprecated. Set FIT_KERNEL_FILENAME or FIT_KERNEL_FILENAME_COMPRESSED explicitly.')
+        with open(os.path.join(kernel_deploydir, "linux_comp")) as linux_comp_f:
+            kernel_comp_alg = linux_comp_f.read()
+
+    if kernel:
+        kernel_path = os.path.join(kernel_deploydir, kernel)
+        kernel_name = os.path.basename(kernel) + '.compressed'
+
+        try:
+            cmd = COMP_ALGS[kernel_comp_alg] + [kernel_path]
+        except KeyError:
+            bb.fatal(f"Unknown algorithm {kernel_comp_alg} in FIT_KERNEL_COMP_ALG.")
+
+        with open(kernel_name, 'wb') as f:
+            try:
+                subprocess.run(cmd, check=True, stdout=f, stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError as e:
+                bb.fatal(f"Command '{' '.join(cmd)}' failed with return code {e.returncode}\nstderr: {e.stderr.decode()}")
+
+    elif kernel_compressed:
+        kernel_path = os.path.join(kernel_deploydir, kernel_compressed)
+        kernel_name = os.path.basename(kernel_compressed)
+        shutil.copyfile(kernel_path, kernel_name)
+
+    # FIT_KERNEL_FILENAME or FIT_KERNEL_FILENAME_COMPRESSED was set
+    if kernel_name:
+        root_node.fitimage_emit_section_kernel("kernel-1", kernel_name, kernel_comp_alg,
+                                               d.getVar('UBOOT_LOADADDRESS'),
+                                               d.getVar('UBOOT_ENTRYPOINT'),
+                                               d.getVar('UBOOT_MKIMAGE_KERNEL_TYPE'),
+                                               d.getVar("UBOOT_ENTRYSYMBOL"))
 
     # Prepare a DTB image section
     kernel_devicetree = d.getVar('KERNEL_DEVICETREE')
