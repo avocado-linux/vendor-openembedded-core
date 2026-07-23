@@ -11,7 +11,9 @@ inherit kernel-uboot
 
 kernel_do_deploy:append() {
 	# Provide the kernel artifacts to post processing recipes e.g. for creating a FIT image
-	uboot_prep_kimage "$deployDir"
+	if [ -z "${FIT_KERNEL_FILENAME}" ] && [ "${FIT_KERNEL_FILENAME_COMPRESSED}" = 'linux.bin' ]; then
+		uboot_prep_kimage "$deployDir"
+	fi
 	# For x86 a setup.bin needs to be include"d in a fitImage as well
 	if [ -e ${KERNEL_OUTPUT_DIR}/setup.bin ]; then
 		install -D "${B}/${KERNEL_OUTPUT_DIR}/setup.bin" "$deployDir/"
