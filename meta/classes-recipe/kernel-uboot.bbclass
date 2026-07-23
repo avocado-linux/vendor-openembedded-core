@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-# fitImage kernel compression algorithm
-FIT_KERNEL_COMP_ALG ?= "gzip"
+require conf/image-fitimage.conf
 
 # Kernel image type passed to mkimage (i.e. kernel kernel_noload...)
 UBOOT_MKIMAGE_KERNEL_TYPE ?= "kernel"
