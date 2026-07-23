@@ -420,10 +420,8 @@ python sstate_hardcode_path_unpack () {
 
         if bb.data.inherits_class('native', d) or bb.data.inherits_class('cross-canadian', d):
             sstate_sed_cmd = "sed -i -e 's:FIXMESTAGINGDIRHOST:%s:g'" % (staging_host)
-        elif bb.data.inherits_class('cross', d) or bb.data.inherits_class('crosssdk', d):
-            sstate_sed_cmd = "sed -i -e 's:FIXMESTAGINGDIRTARGET:%s:g; s:FIXMESTAGINGDIRHOST:%s:g'" % (staging_target, staging_host)
         else:
-            sstate_sed_cmd = "sed -i -e 's:FIXMESTAGINGDIRTARGET:%s:g'" % (staging_target)
+            sstate_sed_cmd = "sed -i -e 's:FIXMESTAGINGDIRTARGET:%s:g; s:FIXMESTAGINGDIRHOST:%s:g'" % (staging_target, staging_host)
 
         extra_staging_fixmes = d.getVar('EXTRA_STAGING_FIXMES') or ''
         for fixmevar in extra_staging_fixmes.split():
@@ -581,7 +579,7 @@ python sstate_hardcode_path () {
     # staging packages.
     #
     # Note: the logic in this function needs to match the reverse logic
-    # in sstate_installpkg(ss, d)
+    # in sstate_hardcode_path_unpack(d)
 
     staging_target = d.getVar('RECIPE_SYSROOT')
     staging_host = d.getVar('RECIPE_SYSROOT_NATIVE')
@@ -590,9 +588,6 @@ python sstate_hardcode_path () {
     sstate_sed_cmd = "sed -i -e 's:%s:FIXMESTAGINGDIRHOST:g'" % staging_host
     if bb.data.inherits_class('native', d) or bb.data.inherits_class('cross-canadian', d):
         sstate_grep_cmd = "grep -l -e '%s'" % (staging_host)
-    elif bb.data.inherits_class('cross', d) or bb.data.inherits_class('crosssdk', d):
-        sstate_grep_cmd = "grep -l -e '%s' -e '%s'" % (staging_target, staging_host)
-        sstate_sed_cmd += " -e 's:%s:FIXMESTAGINGDIRTARGET:g'" % staging_target
     else:
         sstate_grep_cmd = "grep -l -e '%s' -e '%s'" % (staging_target, staging_host)
         sstate_sed_cmd += " -e 's:%s:FIXMESTAGINGDIRTARGET:g'" % staging_target
