@@ -13,7 +13,7 @@ GDB = "gdb-cross-canadian-${TRANSLATED_TARGET_ARCH}"
 RDEPENDS:${PN} = "\
     ${@all_multilib_tune_values(d, 'BINUTILS')} \
     ${@all_multilib_tune_values(d, 'GCC')} \
-    ${@all_multilib_tune_values(d, 'GDB')} \
+    ${@all_multilib_tune_values(d, 'GDB') if bb.utils.contains('SDK_FEATURES', 'gdb', True, False, d) else ''} \
     meta-environment-${MACHINE} \
     "
 
