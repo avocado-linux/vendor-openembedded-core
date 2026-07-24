@@ -30,6 +30,7 @@ RDEPENDS:${PN} = "\
     nativesdk-flex \
     nativesdk-perl-module-integer \
     ${@bb.utils.contains('SDK_FEATURES', 'wic', 'nativesdk-wic', '', d)} \
+    ${@bb.utils.contains('SDK_FEATURES', 'sbom', 'nativesdk-python3-spdx-tools nativesdk-python3-sbom-cve-check', '', d)} \
     "
 
 RDEPENDS:${PN}:darwin = "\
