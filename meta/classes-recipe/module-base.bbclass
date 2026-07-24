@@ -5,6 +5,7 @@
 #
 
 inherit kernel-arch
+TOOLCHAIN = "${KERNEL_TOOLCHAIN}"
 
 # We do the dependency this way because the output is not preserved
 # in sstate, so we must force do_compile to run (once).

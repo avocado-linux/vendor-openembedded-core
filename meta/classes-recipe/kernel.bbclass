@@ -214,6 +214,7 @@ python do_symlink_kernsrc () {
 addtask symlink_kernsrc before do_patch do_configure after do_unpack
 
 inherit kernel-arch deploy
+TOOLCHAIN = "${KERNEL_TOOLCHAIN}"
 
 PACKAGES_DYNAMIC += "^${KERNEL_PACKAGE_NAME}-module-.*"
 PACKAGES_DYNAMIC += "^${KERNEL_PACKAGE_NAME}-image-.*"

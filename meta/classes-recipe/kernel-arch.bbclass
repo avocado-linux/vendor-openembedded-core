@@ -92,5 +92,8 @@ KERNEL_LD:toolchain-clang = "${@bb.utils.contains('DISTRO_FEATURES', 'ld-is-lld'
 KERNEL_AR:toolchain-clang = "llvm-ar ${HOST_AR_KERNEL_ARCH}"
 KERNEL_OBJCOPY:toolchain-clang = "llvm-objcopy ${HOST_OBJCOPY_KERNEL_ARCH}"
 KERNEL_STRIP:toolchain-clang = "llvm-strip"
+# The kbuild recipes (kernel, modules, make-mod-scripts) set TOOLCHAIN
+# from KERNEL_TOOLCHAIN; other inheritors like u-boot and barebox only
+# use kernel-arch for the ARCH mapping and must stay on gcc.
 KERNEL_TOOLCHAIN ?= "gcc"
-TOOLCHAIN = "${KERNEL_TOOLCHAIN}"
+TOOLCHAIN = "gcc"
