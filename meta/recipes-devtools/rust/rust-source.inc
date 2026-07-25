@@ -1,6 +1,12 @@
-RUST_VERSION ?= "${@d.getVar('PV').split('-')[0]}"
+# Version is split into MAJOR_VER and MINOR_VER for easy bumping and
+# to allow consistent use of PV across all consuming recipes.
+MAJOR_VER = "1"
+MINOR_VER = "96"
+PATCH_VER = "1"
 
-SRC_URI += "https://static.rust-lang.org/dist/rustc-${RUST_VERSION}-src.tar.xz;name=rust \
+PV = "${MAJOR_VER}.${MINOR_VER}.${PATCH_VER}"
+
+SRC_URI += "https://static.rust-lang.org/dist/rustc-${PV}-src.tar.xz;name=rust \
             file://0001-Define-more-ioctl-codes-on-riscv32gc-unknown-linux-g.patch;patchdir=${RUSTSRC} \
             file://rust-oe-selftest.patch;patchdir=${RUSTSRC} \
             file://repro-issue-fix-with-cc-crate-hashmap.patch;patchdir=${RUSTSRC} \
@@ -13,7 +19,11 @@ SRC_URI += "https://static.rust-lang.org/dist/rustc-${RUST_VERSION}-src.tar.xz;n
 "
 SRC_URI[rust.sha256sum] = "77a6ff3003a4ad0cb00697b043c879e3e1a15d945b1a1f63818903bfc3fa8b98"
 
-RUSTSRC = "${UNPACKDIR}/rustc-${RUST_VERSION}-src"
+# Point UNPACKDIR into the work-shared location so rust-source.bb and all
+# consumers (via S/RUSTSRC) reference a single shared source tree.
+UNPACKDIR = "${TMPDIR}/work-shared/rust-source-${PV}-${PR}/sources"
+RUSTSRC = "${UNPACKDIR}/rustc-${PV}-src"
+S = "${RUSTSRC}"
 
 UPSTREAM_CHECK_URI = "https://forge.rust-lang.org/infra/other-installation-methods.html"
 UPSTREAM_CHECK_REGEX = "rustc-(?P<pver>\d+(\.\d+)+)-src"
