@@ -12,7 +12,7 @@
 SUMMARY = "Rust sources"
 HOMEPAGE = "http://www.rust-lang.org"
 SECTION = "devel"
-LICENSE = "(Unicode-3.0 AND (Apache-2.0 OR MIT)"
+LICENSE = "Unicode-3.0 AND (Apache-2.0 OR MIT)"
 LIC_FILES_CHKSUM = "file://COPYRIGHT;md5=11a3899825f4376896e438c8c753f8dc"
 
 # This recipe only provides source; disable build/install/packaging tasks
