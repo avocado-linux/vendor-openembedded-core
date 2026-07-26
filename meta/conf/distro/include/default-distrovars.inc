@@ -29,7 +29,6 @@ DISTRO_FEATURES_DEFAULTS ?= " \
     acl alsa bluetooth debuginfod ext2 ipv4 ipv6 \
     wifi xattr nfs zeroconf pci 3g nfc x11 vfat seccomp pulseaudio \
     gobject-introspection-data ldconfig opengl ptest multiarch wayland vulkan \
-    minidebuginfo \
     "
 IMAGE_FEATURES ?= ""
 
